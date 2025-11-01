@@ -47,7 +47,66 @@ npm start
 
 The server will start on `http://localhost:3000`
 
+## Workflow
+
+Dev-Genie supports two modes of operation:
+
+### 1. **Interactive Chat Planning Mode** (Recommended)
+1. User starts chatting: "I want to build a blog"
+2. Frontend sends `POST /api/plan-chat` with conversation history
+3. AI responds with a message and file list
+4. User continues: "Add authentication", "Add a Dockerfile", etc.
+5. Each request updates the file list based on conversation
+6. When user says "done", frontend calls `POST /api/generate` with final file list
+7. User downloads the complete project as a ZIP
+
+### 2. **Direct Generation Mode**
+1. User provides a single comprehensive prompt
+2. Frontend sends `POST /api/generate` with the full requirements
+3. User immediately downloads the generated project ZIP
+
 ## API Endpoints
+
+### POST `/api/plan-chat`
+
+**Interactive chat planning endpoint** - Allows users to iteratively build their project structure through conversation.
+
+**Request Body:**
+```json
+{
+  "history": [
+    { "role": "user", "text": "I want to build a blog" },
+    { "role": "assistant", "text": "Great! I'll start with a basic structure..." }
+  ],
+  "userMessage": "Add a Dockerfile"
+}
+```
+
+**Response:**
+```json
+{
+  "aiMessage": "Perfect! I'll add a Dockerfile to containerize your application. Here's the updated file list.",
+  "fileList": ["server.js", "routes/posts.js", "package.json", "Dockerfile"]
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": "Error message"
+}
+```
+
+**How it works:**
+1. Receives conversation history and the latest user message
+2. AI analyzes the conversation and user's request
+3. Returns a conversational response and an updated file list
+4. Frontend can display the message and show the file structure
+5. User continues chatting until they're satisfied
+6. When user says "done", frontend calls `/api/generate` with the final file list
+
+---
 
 ### POST `/api/generate`
 
@@ -98,6 +157,35 @@ dev-genie-backend/
 
 You can test the API using curl, Postman, or any HTTP client:
 
+### Testing Chat Planning Endpoint
+
+**Using curl:**
+```bash
+curl -X POST http://localhost:3000/api/plan-chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "history": [],
+    "userMessage": "I want to build a REST API for a blog"
+  }'
+```
+
+**Using Postman:**
+1. Set method to POST
+2. URL: `http://localhost:3000/api/plan-chat`
+3. Body: Raw JSON
+```json
+{
+  "history": [
+    { "role": "user", "text": "I want to build a blog" },
+    { "role": "assistant", "text": "Great! I'll set up a basic Express server with routes." }
+  ],
+  "userMessage": "Add user authentication"
+}
+```
+4. You'll receive a JSON response with `aiMessage` and `fileList`
+
+### Testing Project Generation Endpoint
+
 **Using curl:**
 ```bash
 curl -X POST http://localhost:3000/api/generate \
@@ -119,6 +207,7 @@ curl -X POST http://localhost:3000/api/generate \
 
 ## Features
 
+- ✅ **Interactive Chat Planning** - Iteratively build project structure through conversation
 - ✅ AI-powered code generation using Google's Gemini 2.5 Flash (via custom Axios service)
 - ✅ Junior Flow: Chat-based project generation
 - ✅ Meta-prompt engineering for structured code output

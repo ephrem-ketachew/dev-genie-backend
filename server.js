@@ -62,6 +62,70 @@ function parseAiResponse(aiResponse) {
   return files;
 }
 
+// POST route for interactive chat planning
+app.post("/api/plan-chat", async (req, res) => {
+  try {
+    const { history, userMessage } = req.body;
+
+    console.log("Received chat planning request:", userMessage);
+
+    // Build conversation history string
+    const historyText = history
+      .map((msg) => `${msg.role}: ${msg.text}`)
+      .join("\n");
+
+    // Create the planner meta-prompt
+    const metaPrompt = `You are a "Dev-Genie" planning a project with a junior developer.
+
+Here is the conversation so far:
+${historyText}
+
+The user just said: "${userMessage}"
+
+Your job is to:
+1. Respond with a helpful chat message.
+2. Update the project's file list based on their request.
+
+Respond in this EXACT format, with no other text:
+CHAT: [Your chat message to the user goes here]
+FILES: [A JSON array of file paths, like ["server.js", "package.json"]]
+`;
+
+    console.log("Planner meta-prompt created");
+
+    // Call the Gemini API
+    const aiResponse = await geminiService.generateContent(metaPrompt);
+
+    console.log("AI Response received for planning");
+
+    // Parse the AI response to extract chat message and file list
+    const chatMatch = aiResponse.match(/CHAT:\s*(.+?)(?=\nFILES:|$)/s);
+    const filesMatch = aiResponse.match(/FILES:\s*(\[.+?\])/s);
+
+    if (!chatMatch || !filesMatch) {
+      throw new Error("AI response format is invalid. Could not parse CHAT or FILES.");
+    }
+
+    const aiMessage = chatMatch[1].trim();
+    const fileList = JSON.parse(filesMatch[1].trim());
+
+    console.log("Parsed AI message and file list");
+    console.log("File list:", fileList);
+
+    // Send response back to frontend
+    res.json({
+      aiMessage: aiMessage,
+      fileList: fileList,
+    });
+  } catch (error) {
+    console.error("Error in chat planning:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // POST route for generating project scaffolds (Junior Flow)
 app.post("/api/generate", async (req, res) => {
   try {
@@ -138,7 +202,6 @@ Your task is to generate the complete, error-free boilerplate code for this proj
 // Start the server
 app.listen(PORT, () => {
   console.log(`🚀 Dev-Genie Backend is running on http://localhost:${PORT}`);
-  console.log(
-    `📝 Ready to receive project generation requests at POST /api/generate`
-  );
+  console.log(`💬 Chat Planning: POST /api/plan-chat`);
+  console.log(`📦 Project Generation: POST /api/generate`);
 });
