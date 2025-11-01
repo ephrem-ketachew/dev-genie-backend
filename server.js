@@ -62,22 +62,47 @@ function parseAiResponse(aiResponse) {
   return files;
 }
 
-// POST route for interactive chat planning
+// POST route for interactive chat planning (Smart Flow)
 app.post("/api/plan-chat", async (req, res) => {
   try {
-    const { history, userMessage } = req.body;
+    const { history, userMessage, config } = req.body;
 
-    console.log("Received chat planning request:", userMessage);
+    let metaPrompt = "";
 
-    // Build conversation history string
-    const historyText = history
-      .map((msg) => `${msg.role}: ${msg.text}`)
-      .join("\n");
+    if (config) {
+      // --- THIS IS THE FIRST CALL (from the form) ---
+      console.log("Received INITIAL project config:", config);
 
-    // Create the planner meta-prompt
-    const metaPrompt = `You are a "Dev-Genie" planning a project with a junior developer.
+      // Convert config object to a string for the prompt
+      const configString = JSON.stringify(config, null, 2);
 
-Here is the conversation so far:
+      metaPrompt = `
+You are a "Dev-Genie" planning a new project. A user has submitted a form with the following requirements:
+
+--- CONFIGURATION ---
+${configString}
+--- END CONFIGURATION ---
+
+The user's main goal is: "${userMessage}"
+
+Your job is to:
+1. Generate the initial file list based on *all* the configuration and the user's prompt.
+2. Respond with a helpful, conversational welcome message that *confirms* their main choices (e.g., "Okay, I've planned your React/Node project...").
+
+Respond in this EXACT format, with no other text:
+CHAT: [Your chat message to the user goes here]
+FILES: [A JSON array of file paths, like ["server.js", "package.json"]]
+`;
+    } else {
+      // --- THIS IS A FOLLOW-UP CHAT ---
+      console.log("Received follow-up chat message");
+
+      const historyText = history
+        .map((msg) => `${msg.role}: ${msg.text}`)
+        .join("\n");
+
+      metaPrompt = `
+You are a "Dev-Genie" planning a project. Here is the conversation so far:
 ${historyText}
 
 The user just said: "${userMessage}"
@@ -90,10 +115,10 @@ Respond in this EXACT format, with no other text:
 CHAT: [Your chat message to the user goes here]
 FILES: [A JSON array of file paths, like ["server.js", "package.json"]]
 `;
+    }
 
-    console.log("Planner meta-prompt created");
-
-    // Call the Gemini API
+    // --- Call the Gemini API ---
+    console.log("Calling Gemini with meta-prompt...");
     const aiResponse = await geminiService.generateContent(metaPrompt);
 
     console.log("AI Response received for planning");
@@ -120,7 +145,7 @@ FILES: [A JSON array of file paths, like ["server.js", "package.json"]]
       fileList: fileList,
     });
   } catch (error) {
-    console.error("Error in chat planning:", error);
+    console.error("Error in /api/plan-chat:", error);
     res.status(500).json({
       success: false,
       error: error.message,
