@@ -103,7 +103,9 @@ FILES: [A JSON array of file paths, like ["server.js", "package.json"]]
     const filesMatch = aiResponse.match(/FILES:\s*(\[.+?\])/s);
 
     if (!chatMatch || !filesMatch) {
-      throw new Error("AI response format is invalid. Could not parse CHAT or FILES.");
+      throw new Error(
+        "AI response format is invalid. Could not parse CHAT or FILES."
+      );
     }
 
     const aiMessage = chatMatch[1].trim();
